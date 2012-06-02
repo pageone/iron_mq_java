@@ -1,9 +1,15 @@
 package io.iron.ironmq;
 
+import java.util.List;
+
 class Ids {
-    private String[] ids;
+    private List<String> ids;
 
     String getId(int i) {
-        return ids[i];
+        return ids.get(i);
+    }
+
+    public List<String> getIds() {
+        return ids;
     }
 }

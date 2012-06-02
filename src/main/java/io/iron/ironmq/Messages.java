@@ -1,13 +1,20 @@
 package io.iron.ironmq;
 
-class Messages {
-    private Message[] messages;
+import java.util.Collections;
+import java.util.List;
 
-    Messages(Message... msgs) {
+class Messages {
+    private List<Message> messages;
+
+    Messages(Message message) {
+        messages = Collections.singletonList(message);
+    }
+
+    Messages(List<Message> msgs) {
         messages = msgs;
     }
 
-    Message getMessage(int i) {
-        return messages[i];
+    List<Message> getMessages() {
+        return messages;
     }
 }

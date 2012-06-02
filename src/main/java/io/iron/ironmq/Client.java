@@ -125,7 +125,7 @@ public class Client {
         int status = conn.getResponseCode();
         if (status != 200) {
             String msg;
-            if (conn.getContentLength() > 0 && conn.getContentType() == "application/json") {
+            if (conn.getContentLength() > 0 &&  "application/json".equals(conn.getContentType())) {
                 InputStreamReader reader = null;
                 try {
                     reader = new InputStreamReader(conn.getErrorStream());

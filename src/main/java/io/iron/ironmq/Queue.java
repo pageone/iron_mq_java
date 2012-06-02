@@ -2,6 +2,8 @@ package io.iron.ironmq;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Collections;
+import java.util.List;
 
 import com.google.gson.Gson;
 
@@ -9,8 +11,12 @@ import com.google.gson.Gson;
  * The Queue class represents a specific IronMQ queue bound to a client.
  */
 public class Queue {
+    public static final int DEFAULT_MAX_PER_GET = 100;
+
     final private Client client;
     final private String name;
+
+    private int maxMessagesPerGet = DEFAULT_MAX_PER_GET;
 
     Queue(Client client, String name) {
         this.client = client;
@@ -18,26 +24,54 @@ public class Queue {
     }
 
     /**
-    * Retrieves a Message from the queue. If there are no items on the queue, an
-    * EmptyQueueException is thrown.
+    * Retrieves a single Message from the queue. If there are no items on the queue, null
+    * is returned.
     *
-    * @throws EmptyQueueException If the queue is empty.
     * @throws HTTPException If the IronMQ service returns a status other than 200 OK.
     * @throws IOException If there is an error accessing the IronMQ server.
     */
-    public Message get() throws IOException {
-        Reader reader = client.get("queues/" + name + "/messages");
-        Gson gson = new Gson();
-        Messages msgs = gson.fromJson(reader, Messages.class);
+    public Message getOne() throws IOException {
+        List<Message> messages = get(1);
 
-        Message msg;
-        try {
-            msg = msgs.getMessage(0);
-        } catch (IndexOutOfBoundsException e) {
-            throw new EmptyQueueException();
+        if (messages.isEmpty()) {
+            return null;
         }
 
-        return msg;
+        return messages.get(0);
+
+    }
+
+    /**
+     * Retrieves up to maxMessagesPerGet messages from the queue.  If there
+     * are no messages on the queue, an empty list is returned.
+     *
+     * @return
+     * @throws IOException
+     */
+    public List<Message> get() throws IOException {
+        return get(maxMessagesPerGet);
+    }
+
+    /**
+     * Retrieves up to a given number of Messages from the queue.  If there are
+     * no messages on the queue, an empty list is returned.
+     *
+     * @return
+     * @throws IOException
+     */
+    public List<Message> get(int limit) throws IOException {
+
+        Reader reader = client.get("queues/" + name + "/messages?n=" + limit);
+        return parseMessages(reader);
+    }
+
+    List<Message> parseMessages(Reader reader) {
+        Gson gson = new Gson();
+        Messages msgs = gson.fromJson(reader, Messages.class);
+        if (msgs == null || msgs.getMessages() == null) {
+            return Collections.emptyList();
+        }
+        return msgs.getMessages();
     }
 
     /**
@@ -125,12 +159,52 @@ public class Queue {
         message.setDelay(delay);
         message.setExpiresIn(expiresIn);
 
-        Messages msgs = new Messages(message);
+        List<String> ids = push(Collections.singletonList(message));
+        return ids.get(0);
+    }
+
+    /**
+     * Pushes a batch of messages.  Care should be taken to ensure these will not exceed the
+     * maximum post size, there is no checking currently being done.
+     *
+     * @param messages
+     * @return
+     * @throws IOException
+     */
+    public List<String> push(List<Message> messages) throws IOException {
+        Messages msgs = new Messages(messages);
         Gson gson = new Gson();
         String body = gson.toJson(msgs);
 
         Reader reader = client.post("queues/" + name + "/messages", body);
         Ids ids = gson.fromJson(reader, Ids.class);
-        return ids.getId(0);
+        return ids.getIds();
+    }
+
+    /**
+     * Clears all messages from the queue.
+     *
+     * @throws IOException
+     */
+    public void clear() throws IOException {
+        client.post("queues/" + name + "/clear", null);
+    }
+
+    /**
+     * The maximum number of messages that will be fetched per get() call.
+     *
+     * @return
+     */
+    public int getMaxMessagesPerGet() {
+        return maxMessagesPerGet;
+    }
+
+    /**
+     * Set the maximum number of messages that will be fetched per get() call.
+     *
+     * @param maxMessagesPerGet
+     */
+    public void setMaxMessagesPerGet(int maxMessagesPerGet) {
+        this.maxMessagesPerGet = maxMessagesPerGet;
     }
 }

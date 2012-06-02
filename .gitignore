@@ -1,2 +1,6 @@
+#intellij
+.idea/
+*.iml
+
 reports
 target
